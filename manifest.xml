@@ -11,11 +11,11 @@
   <DefaultLocale>it-IT</DefaultLocale>
   <DisplayName DefaultValue="Gestione Pratiche"/>
   <Description DefaultValue="Presa in carico e chiusura pratiche di consulenza"/>
-  <IconUrl DefaultValue="https://localhost:3000/icon-64.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/icon-128.png"/>
-  <SupportUrl DefaultValue="https://terrazzini-my.sharepoint.com"/>
+  <IconUrl DefaultValue="https://viktor0470.github.io/gestione-pratiche/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://viktor0470.github.io/gestione-pratiche/icon-128.png"/>
+  <SupportUrl DefaultValue="https://viktor0470.github.io"/>
   <AppDomains>
-    <AppDomain>https://terrazzini-my.sharepoint.com</AppDomain>
+    <AppDomain>https://viktor0470.github.io</AppDomain>
   </AppDomains>
 
   <Hosts>
@@ -31,7 +31,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/addin.html"/>
+        <SourceLocation DefaultValue="https://viktor0470.github.io/gestione-pratiche/addin.html"/>
         <RequestedHeight>350</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -98,14 +98,14 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/icon-16.png"/>
-        <bt:Image id="Icon.32x32" DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/icon-32.png"/>
-        <bt:Image id="Icon.80x80" DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/icon-80.png"/>
+        <bt:Image id="Icon.16x16" DefaultValue="https://viktor0470.github.io/gestione-pratiche/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://viktor0470.github.io/gestione-pratiche/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://viktor0470.github.io/gestione-pratiche/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/commands.html"/>
-        <bt:Url id="PrendiInCarico.Url" DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/prendi-in-carico.html"/>
-        <bt:Url id="ChiudiPratica.Url" DefaultValue="https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it/Documents/GestionePratiche/chiudi-pratica.html"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://viktor0470.github.io/gestione-pratiche/commands.html"/>
+        <bt:Url id="PrendiInCarico.Url" DefaultValue="https://viktor0470.github.io/gestione-pratiche/prendi-in-carico.html"/>
+        <bt:Url id="ChiudiPratica.Url" DefaultValue="https://viktor0470.github.io/gestione-pratiche/chiudi-pratica.html"/>
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GroupLabel" DefaultValue="Pratiche"/>
