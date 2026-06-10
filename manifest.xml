@@ -31,7 +31,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://viktor0470.github.io/gestione-pratiche/addin.html"/>
+        <SourceLocation DefaultValue="https://viktor0470.github.io/gestione-pratiche/prendi-in-carico.html"/>
         <RequestedHeight>350</RequestedHeight>
       </DesktopSettings>
     </Form>
