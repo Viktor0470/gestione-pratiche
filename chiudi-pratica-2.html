@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chiudi Pratica</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1C2B3A; --gold: #E8A020; --bg: #F5F4EF; --border: #ddd; }
+  body { font-family: 'Source Sans 3', sans-serif; background: var(--bg); color: #1a1a1a; padding: 16px; font-size: 13px; }
+  .header { background: var(--navy); color: #F5F4EF; margin: -16px -16px 16px -16px; padding: 12px 16px; }
+  .header .label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #8AAFC4; margin-bottom: 2px; }
+  .header h1 { font-family: 'Lora', serif; font-size: 16px; font-weight: 700; }
+  .pratica-info { background: #FFF3CD; color: #856404; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 12px; }
+  .pratica-info .oggetto { font-weight: 600; font-size: 13px; margin-bottom: 2px; font-family: 'Lora', serif; }
+  .field { margin-bottom: 12px; }
+  .field label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 4px; font-weight: 600; }
+  .field input, .field select { width: 100%; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; background: #fff; }
+  .field textarea { width: 100%; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; resize: vertical; min-height: 60px; }
+  .tempo-row { display: flex; gap: 10px; }
+  .tempo-row .field { flex: 1; }
+  .tempo-row .field input { text-align: center; }
+  .btn-confirm { width: 100%; background: #28A745; color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Lora', serif; margin-top: 6px; }
+  .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-login { width: 100%; background: var(--gold); color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Lora', serif; margin-bottom: 12px; }
+  .msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; display: none; }
+  .msg.success { background: #D4EDDA; color: #155724; display: block; }
+  .msg.error { background: #F8D7DA; color: #721C24; display: block; }
+  .spinner { display: none; text-align: center; padding: 8px; color: #666; font-size: 12px; }
+  .spinner.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="label">Gestione Pratiche</div>
+  <h1>Chiudi Pratica</h1>
+</div>
+
+<div class="pratica-info">
+  <div class="oggetto" id="emailOggetto">Caricamento...</div>
+  <div id="praticaDettagli" style="font-size:11px;opacity:0.85"></div>
+</div>
+
+<button class="btn-login" id="btnLogin" style="display:none">🔑 Accedi con Microsoft</button>
+
+<div id="formArea">
+  <div class="field">
+    <label>Descrizione Fatturazione *</label>
+    <textarea id="fDescrizione" placeholder="Descrivi la prestazione per la fatturazione..."></textarea>
+  </div>
+  <div class="tempo-row">
+    <div class="field">
+      <label>Ore</label>
+      <input type="number" id="fOre" min="0" max="99" placeholder="0">
+    </div>
+    <div class="field">
+      <label>Minuti</label>
+      <input type="number" id="fMinuti" min="0" max="59" placeholder="0">
+    </div>
+  </div>
+  <div class="field">
+    <label>Note Fatturazione</label>
+    <textarea id="fNoteFatt" placeholder="Note aggiuntive per la fatturazione..."></textarea>
+  </div>
+  <button class="btn-confirm" id="btnConferma">✔ Chiudi Pratica</button>
+</div>
+
+<div class="spinner" id="spinner">Salvataggio in corso...</div>
+<div class="msg" id="msg"></div>
+
+<script>
+const SHAREPOINT_SITE = "https://terrazzini-my.sharepoint.com/personal/ozren_terrazzini_it";
+const LIST_PRATICHE = "Pratiche di Consulenza";
+
+const msalConfig = {
+  auth: {
+    clientId: "00000000-0000-0000-0000-000000000000", // DA SOSTITUIRE
+    authority: "https://login.microsoftonline.com/common",
+    redirectUri: "https://viktor0470.github.io/gestione-pratiche/chiudi-pratica.html"
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+const scopes = ["https://graph.microsoft.com/Sites.ReadWrite.All"];
+
+let accessToken = null;
+let emailId = "";
+let praticaItemId = null;
+
+Office.onReady(async (info) => {
+  if (info.host === Office.HostType.Outlook) {
+    const item = Office.context.mailbox.item;
+    document.getElementById("emailOggetto").textContent = item.subject || "(nessun oggetto)";
+    emailId = item.itemId || "";
+    await inizializzaAuth();
+  }
+});
+
+async function inizializzaAuth() {
+  try {
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      const result = await msalInstance.acquireTokenSilent({ scopes, account: accounts[0] });
+      accessToken = result.accessToken;
+      await cercaPratica();
+    } else {
+      document.getElementById("btnLogin").style.display = "block";
+    }
+  } catch (e) {
+    document.getElementById("btnLogin").style.display = "block";
+  }
+}
+
+document.getElementById("btnLogin").onclick = async () => {
+  try {
+    const result = await msalInstance.loginPopup({ scopes });
+    accessToken = result.accessToken;
+    document.getElementById("btnLogin").style.display = "none";
+    await cercaPratica();
+  } catch (e) {
+    mostraMsg("Errore di accesso. Riprovare.", "error");
+  }
+};
+
+async function cercaPratica() {
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_PRATICHE);
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$filter=fields/MailID eq '${encodeURIComponent(emailId)}'`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await res.json();
+    if (data.value && data.value.length > 0) {
+      const pratica = data.value[0];
+      praticaItemId = pratica.id;
+      const f = pratica.fields;
+      const dettagli = [f.Cliente, f.TipoPraticaValue, f.Consulente].filter(Boolean).join(" · ");
+      document.getElementById("praticaDettagli").textContent = dettagli;
+      if (f.DescrizioneFatturazione) document.getElementById("fDescrizione").value = f.DescrizioneFatturazione;
+      if (f.Ore) document.getElementById("fOre").value = f.Ore;
+      if (f.Minuti) document.getElementById("fMinuti").value = f.Minuti;
+      if (f.NoteFatturazione) document.getElementById("fNoteFatt").value = f.NoteFatturazione;
+    } else {
+      mostraMsg("Pratica non trovata. Usare prima Prendi in Carico.", "error");
+      document.getElementById("btnConferma").disabled = true;
+    }
+  } catch (e) {
+    mostraMsg("Errore nel recupero della pratica.", "error");
+  }
+}
+
+document.getElementById("btnConferma").onclick = async () => {
+  const descrizione = document.getElementById("fDescrizione").value.trim();
+  const ore = parseInt(document.getElementById("fOre").value) || 0;
+  const minuti = parseInt(document.getElementById("fMinuti").value) || 0;
+  const noteFatt = document.getElementById("fNoteFatt").value.trim();
+
+  if (!descrizione) { mostraMsg("Inserire la descrizione per la fatturazione.", "error"); return; }
+  if (ore === 0 && minuti === 0) { mostraMsg("Inserire il tempo impiegato.", "error"); return; }
+  if (minuti > 59) { mostraMsg("I minuti devono essere tra 0 e 59.", "error"); return; }
+
+  document.getElementById("btnConferma").disabled = true;
+  document.getElementById("spinner").classList.add("show");
+
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_PRATICHE);
+    await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items/${praticaItemId}/fields`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        StatoValue: "COMPLETATA - DA FATTURARE",
+        DescrizioneFatturazione: descrizione,
+        Ore: ore, Minuti: minuti,
+        NoteFatturazione: noteFatt,
+        DataChiusura: new Date().toISOString()
+      })
+    });
+    mostraMsg("✔ Pratica chiusa e pronta per la fatturazione.", "success");
+    document.getElementById("btnConferma").textContent = "✔ Completato";
+  } catch (e) {
+    mostraMsg("Errore durante il salvataggio. Riprovare.", "error");
+    document.getElementById("btnConferma").disabled = false;
+  }
+
+  document.getElementById("spinner").classList.remove("show");
+};
+
+let _siteId = null;
+async function getSiteId() {
+  if (_siteId) return _siteId;
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/terrazzini-my.sharepoint.com:/personal/ozren_terrazzini_it`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  _siteId = data.id;
+  return _siteId;
+}
+
+const _listIds = {};
+async function getListId(siteId, listName) {
+  if (_listIds[listName]) return _listIds[listName];
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${siteId}/lists?$filter=displayName eq '${encodeURIComponent(listName)}'`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  _listIds[listName] = data.value[0].id;
+  return _listIds[listName];
+}
+
+function mostraMsg(testo, tipo) {
+  const el = document.getElementById("msg");
+  el.textContent = testo;
+  el.className = `msg ${tipo}`;
+}
+</script>
+</body>
+</html>
