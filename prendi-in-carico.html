@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prendi in Carico</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1C2B3A; --gold: #E8A020; --bg: #F5F4EF; --border: #ddd; --active-bg: #CCE5FF; --active-text: #004085; }
+  body { font-family: 'Source Sans 3', sans-serif; background: var(--bg); color: #1a1a1a; padding: 16px; font-size: 13px; }
+  .header { background: var(--navy); color: #F5F4EF; margin: -16px -16px 16px -16px; padding: 12px 16px; }
+  .header .label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #8AAFC4; margin-bottom: 2px; }
+  .header h1 { font-family: 'Lora', serif; font-size: 16px; font-weight: 700; }
+  .pratica-info { background: var(--active-bg); color: var(--active-text); border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 12px; }
+  .pratica-info .oggetto { font-weight: 600; font-size: 13px; margin-bottom: 2px; font-family: 'Lora', serif; }
+  .pratica-info .mittente { font-size: 11px; opacity: 0.8; }
+  .field { margin-bottom: 12px; }
+  .field label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 4px; font-weight: 600; }
+  .field input, .field select { width: 100%; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; background: #fff; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus { border-color: var(--navy); }
+  .field textarea { width: 100%; padding: 7px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; resize: vertical; min-height: 60px; transition: border-color 0.15s; }
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1.5px solid var(--navy); border-radius: 0 0 6px 6px; max-height: 140px; overflow-y: auto; z-index: 100; display: none; }
+  .autocomplete-list.open { display: block; }
+  .autocomplete-item { padding: 7px 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .autocomplete-item:hover { background: var(--bg); }
+  .autocomplete-item.add-new { color: var(--gold); font-weight: 600; font-style: italic; }
+  .btn-confirm { width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Lora', serif; margin-top: 6px; }
+  .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-login { width: 100%; background: var(--gold); color: #fff; border: none; border-radius: 6px; padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Lora', serif; margin-bottom: 12px; display: none; }
+  .msg { margin-top: 10px; padding: 8px 12px; border-radius: 6px; font-size: 12px; display: none; }
+  .msg.success { background: #D4EDDA; color: #155724; display: block; }
+  .msg.error { background: #F8D7DA; color: #721C24; display: block; }
+  .spinner { display: none; text-align: center; padding: 8px; color: #666; font-size: 12px; }
+  .spinner.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="label">Gestione Pratiche</div>
+  <h1>Prendi in Carico</h1>
+</div>
+
+<div class="pratica-info">
+  <div class="oggetto" id="emailOggetto">Caricamento...</div>
+  <div class="mittente" id="emailMittente"></div>
+</div>
+
+<button class="btn-login" id="btnLogin">🔑 Accedi con Microsoft</button>
+
+<div class="field">
+  <label>Cliente *</label>
+  <div class="autocomplete-wrap">
+    <input type="text" id="fCliente" placeholder="Inizia a scrivere..." autocomplete="off">
+    <div class="autocomplete-list" id="autocompleteList"></div>
+  </div>
+</div>
+
+<div class="field">
+  <label>Tipo Pratica *</label>
+  <select id="fTipo">
+    <option value="">— Seleziona —</option>
+    <option>Assunzione</option><option>Licenziamento</option><option>Busta paga</option>
+    <option>INPS</option><option>Contratto</option><option>Vertenza</option>
+    <option>CIG/FIS</option><option>Altro</option>
+  </select>
+</div>
+
+<div class="field">
+  <label>Scadenza *</label>
+  <input type="date" id="fScadenza">
+</div>
+
+<div class="field">
+  <label>Note Operative</label>
+  <textarea id="fNote" placeholder="Note per la gestione della pratica..."></textarea>
+</div>
+
+<button class="btn-confirm" id="btnConferma">✔ Prendi in Carico</button>
+<div class="spinner" id="spinner">Salvataggio in corso...</div>
+<div class="msg" id="msg"></div>
+
+<script>
+const CLIENT_ID = "55c40096-7100-44b0-817e-c725133ba09a";
+const TENANT_ID = "58858aec-99dd-4073-9aeb-2878bf254eca";
+const SHAREPOINT_HOST = "terrazzini-my.sharepoint.com";
+const SHAREPOINT_SITE_PATH = "/personal/ozren_terrazzini_it";
+const LIST_PRATICHE = "Pratiche di Consulenza";
+const LIST_CLIENTI = "Clienti";
+
+const msalConfig = {
+  auth: {
+    clientId: CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: "https://viktor0470.github.io/gestione-pratiche/prendi-in-carico.html"
+  },
+  cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: true }
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+const scopes = [`https://${SHAREPOINT_HOST}/AllSites.Write`, "https://graph.microsoft.com/Sites.ReadWrite.All"];
+
+let accessToken = null;
+let clientiCache = [];
+let selectedClienteId = null; // ID numerico del cliente selezionato
+let emailId = "";
+let emailOggetto = "";
+let emailMittente = "";
+let consulente = "";
+
+Office.onReady(async (info) => {
+  if (info.host === Office.HostType.Outlook) {
+    const item = Office.context.mailbox.item;
+    emailOggetto = item.subject || "";
+    emailMittente = item.from ? item.from.emailAddress : "";
+    emailId = item.itemId || "";
+    consulente = Office.context.mailbox.userProfile.displayName || "";
+
+    document.getElementById("emailOggetto").textContent = emailOggetto || "(nessun oggetto)";
+    document.getElementById("emailMittente").textContent = emailMittente;
+
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    document.getElementById("fScadenza").value = d.toISOString().slice(0, 10);
+
+    await inizializzaAuth();
+  }
+});
+
+async function inizializzaAuth() {
+  try {
+    await msalInstance.initialize();
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      const result = await msalInstance.acquireTokenSilent({ 
+        scopes: ["https://graph.microsoft.com/Sites.ReadWrite.All", "https://graph.microsoft.com/Mail.ReadWrite"], 
+        account: accounts[0] 
+      });
+      accessToken = result.accessToken;
+      await caricaClienti();
+    } else {
+      document.getElementById("btnLogin").style.display = "block";
+    }
+  } catch (e) {
+    console.error("Auth error:", e);
+    document.getElementById("btnLogin").style.display = "block";
+  }
+}
+
+document.getElementById("btnLogin").onclick = async () => {
+  try {
+    const result = await msalInstance.loginPopup({ 
+      scopes: ["https://graph.microsoft.com/Sites.ReadWrite.All", "https://graph.microsoft.com/Mail.ReadWrite"],
+      prompt: "select_account"
+    });
+    accessToken = result.accessToken;
+    document.getElementById("btnLogin").style.display = "none";
+    await caricaClienti();
+  } catch (e) {
+    console.error("Login error:", e);
+    mostraMsg("Errore di accesso. Riprovare.", "error");
+  }
+};
+
+async function caricaClienti() {
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_CLIENTI);
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=500`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await res.json();
+    clientiCache = (data.value || [])
+      .map(i => ({ id: i.id, nome: i.fields.Title || "" }))
+      .filter(c => c.nome)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  } catch (e) {
+    console.error("Errore clienti:", e);
+  }
+}
+
+const fCliente = document.getElementById("fCliente");
+const autocompleteList = document.getElementById("autocompleteList");
+
+fCliente.addEventListener("input", () => {
+  const q = fCliente.value.trim().toLowerCase();
+  autocompleteList.innerHTML = "";
+  if (q.length < 2) { autocompleteList.classList.remove("open"); return; }
+  const filtered = clientiCache.filter(c => c.nome.toLowerCase().includes(q)).slice(0, 8);
+  filtered.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "autocomplete-item";
+    div.textContent = c.nome;
+    div.onclick = () => { fCliente.value = c.nome; selectedClienteId = c.id; autocompleteList.classList.remove("open"); };
+    autocompleteList.appendChild(div);
+  });
+  const addDiv = document.createElement("div");
+  addDiv.className = "autocomplete-item add-new";
+  addDiv.textContent = `+ Aggiungi "${fCliente.value.trim()}"`;
+  addDiv.onclick = async () => { await aggiungiCliente(fCliente.value.trim()); autocompleteList.classList.remove("open"); };
+  autocompleteList.appendChild(addDiv);
+  autocompleteList.classList.add("open");
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".autocomplete-wrap")) autocompleteList.classList.remove("open");
+});
+
+async function aggiungiCliente(nome) {
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_CLIENTI);
+    const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { Title: nome } })
+    });
+    const data = await res.json();
+    const newId = data.fields?.id || data.id;
+    clientiCache.push({ id: newId, nome });
+    clientiCache.sort((a, b) => a.nome.localeCompare(b.nome));
+    fCliente.value = nome;
+    selectedClienteId = newId;
+  } catch (e) { console.error(e); }
+}
+
+document.getElementById("btnConferma").onclick = async () => {
+  const cliente = fCliente.value.trim();
+  const tipo = document.getElementById("fTipo").value;
+  const scadenza = document.getElementById("fScadenza").value;
+  const note = document.getElementById("fNote").value.trim();
+
+  if (!cliente) { mostraMsg("Inserire il nome del cliente.", "error"); return; }
+  if (!tipo) { mostraMsg("Selezionare il tipo di pratica.", "error"); return; }
+  if (!scadenza) { mostraMsg("Inserire la scadenza.", "error"); return; }
+  if (!accessToken) { mostraMsg("Effettuare prima il login.", "error"); return; }
+
+  document.getElementById("btnConferma").disabled = true;
+  document.getElementById("spinner").classList.add("show");
+
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_PRATICHE);
+
+    const fields = {
+      ClienteLookupId: selectedClienteId,
+      TipoPratica: tipo,
+      Scadenza: new Date(scadenza).toISOString(),
+      NoteOperative: note,
+      Consulente: consulente,
+      Stato: "IN LAVORAZIONE"
+    };
+
+    const search = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=500`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const searchData = await search.json();
+    const existingItem = (searchData.value || []).find(i => i.fields.MailID === emailId);
+
+    if (existingItem) {
+      const itemId = existingItem.id;
+      await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items/${itemId}/fields`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify(fields)
+      });
+    } else {
+      await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { Title: emailOggetto, MailID: emailId, DataArrivo: new Date().toISOString(), ...fields } })
+      });
+    }
+
+    mostraMsg("✔ Pratica presa in carico con successo.", "success");
+    document.getElementById("btnConferma").textContent = "✔ Completato";
+
+    // Sposta email in cartella IN LAVORAZIONE
+    try {
+      // Cerca nelle sottocartelle di Posta in Arrivo
+      const inboxRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/childFolders?$top=50`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const inboxData = await inboxRes.json();
+      console.log("Sottocartelle trovate:", (inboxData.value || []).map(f => f.displayName));
+      const inLavorazioneFolder = (inboxData.value || []).find(f => 
+        f.displayName === "--- IN LAVORAZIONE" ||
+        f.displayName === "IN LAVORAZIONE"
+      );
+      if (inLavorazioneFolder) {
+        await fetch(`https://graph.microsoft.com/v1.0/me/messages/${emailId}/move`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ destinationId: inLavorazioneFolder.id })
+        });
+      } else {
+        console.error("Cartella IN LAVORAZIONE non trovata");
+      }
+    } catch (moveErr) {
+      console.error("Errore spostamento email:", moveErr);
+    }
+
+  } catch (e) {
+    console.error(e);
+    mostraMsg("Errore durante il salvataggio. Riprovare.", "error");
+    document.getElementById("btnConferma").disabled = false;
+  }
+  document.getElementById("spinner").classList.remove("show");
+};
+
+let _siteId = null;
+async function getSiteId() {
+  if (_siteId) return _siteId;
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_HOST}:${SHAREPOINT_SITE_PATH}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  if (!data.id) throw new Error("Site not found: " + JSON.stringify(data));
+  _siteId = data.id;
+  return _siteId;
+}
+
+const _listIds = {};
+async function getListId(siteId, listName) {
+  if (_listIds[listName]) return _listIds[listName];
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${siteId}/lists?$filter=displayName eq '${encodeURIComponent(listName)}'`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  if (!data.value || data.value.length === 0) throw new Error("List not found: " + listName);
+  _listIds[listName] = data.value[0].id;
+  return _listIds[listName];
+}
+
+function mostraMsg(testo, tipo) {
+  const el = document.getElementById("msg");
+  el.textContent = testo;
+  el.className = `msg ${tipo}`;
+}
+</script>
+</body>
+</html>
