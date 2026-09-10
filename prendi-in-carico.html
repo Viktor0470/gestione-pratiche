@@ -137,7 +137,7 @@ async function inizializzaAuth() {
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
       const result = await msalInstance.acquireTokenSilent({ 
-        scopes: ["https://graph.microsoft.com/Sites.ReadWrite.All"], 
+        scopes: ["https://graph.microsoft.com/Sites.ReadWrite.All", "https://graph.microsoft.com/Mail.ReadWrite"], 
         account: accounts[0] 
       });
       accessToken = result.accessToken;
@@ -154,7 +154,7 @@ async function inizializzaAuth() {
 document.getElementById("btnLogin").onclick = async () => {
   try {
     const result = await msalInstance.loginPopup({ 
-      scopes: ["https://graph.microsoft.com/Sites.ReadWrite.All"],
+      scopes: ["https://graph.microsoft.com/Sites.ReadWrite.All", "https://graph.microsoft.com/Mail.ReadWrite"],
       prompt: "select_account"
     });
     accessToken = result.accessToken;
