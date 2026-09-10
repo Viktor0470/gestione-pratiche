@@ -257,7 +257,7 @@ document.getElementById("btnConferma").onclick = async () => {
     };
 
     const search = await fetch(
-      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=100&$orderby=fields/DataArrivo desc`,
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=500`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const searchData = await search.json();
