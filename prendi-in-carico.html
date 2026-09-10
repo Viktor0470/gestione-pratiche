@@ -283,23 +283,24 @@ document.getElementById("btnConferma").onclick = async () => {
 
     // Sposta email in cartella IN LAVORAZIONE
     try {
-      const mailboxUrl = `https://graph.microsoft.com/v1.0/me/messages/${emailId}/move`;
-      // Prima trova l'ID della cartella IN LAVORAZIONE
-      const foldersRes = await fetch(
-        `https://graph.microsoft.com/v1.0/me/mailFolders?$top=50`,
+      // Cerca nelle sottocartelle di Posta in Arrivo
+      const inboxRes = await fetch(
+        `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/childFolders?$top=50`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
-      const foldersData = await foldersRes.json();
-      const inLavorazioneFolder = (foldersData.value || []).find(f => 
-        f.displayName === "IN LAVORAZIONE" || 
-        f.displayName === "--- IN LAVORAZIONE"
+      const inboxData = await inboxRes.json();
+      const inLavorazioneFolder = (inboxData.value || []).find(f => 
+        f.displayName === "--- IN LAVORAZIONE" ||
+        f.displayName === "IN LAVORAZIONE"
       );
       if (inLavorazioneFolder) {
-        await fetch(mailboxUrl, {
+        await fetch(`https://graph.microsoft.com/v1.0/me/messages/${emailId}/move`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify({ destinationId: inLavorazioneFolder.id })
         });
+      } else {
+        console.error("Cartella IN LAVORAZIONE non trovata");
       }
     } catch (moveErr) {
       console.error("Errore spostamento email:", moveErr);
