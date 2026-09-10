@@ -106,6 +106,7 @@ const scopes = [`https://${SHAREPOINT_HOST}/AllSites.Write`, "https://graph.micr
 
 let accessToken = null;
 let clientiCache = [];
+let selectedClienteId = null; // ID numerico del cliente selezionato
 let emailId = "";
 let emailOggetto = "";
 let emailMittente = "";
@@ -195,7 +196,7 @@ fCliente.addEventListener("input", () => {
     const div = document.createElement("div");
     div.className = "autocomplete-item";
     div.textContent = c.nome;
-    div.onclick = () => { fCliente.value = c.nome; autocompleteList.classList.remove("open"); };
+    div.onclick = () => { fCliente.value = c.nome; selectedClienteId = c.id; autocompleteList.classList.remove("open"); };
     autocompleteList.appendChild(div);
   });
   const addDiv = document.createElement("div");
@@ -214,13 +215,17 @@ async function aggiungiCliente(nome) {
   try {
     const siteId = await getSiteId();
     const listId = await getListId(siteId, LIST_CLIENTI);
-    await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`, {
+    const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`, {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { Title: nome } })
     });
-    clientiCache.push({ nome });
+    const data = await res.json();
+    const newId = data.fields?.id || data.id;
+    clientiCache.push({ id: newId, nome });
     clientiCache.sort((a, b) => a.nome.localeCompare(b.nome));
+    fCliente.value = nome;
+    selectedClienteId = newId;
   } catch (e) { console.error(e); }
 }
 
@@ -243,7 +248,7 @@ document.getElementById("btnConferma").onclick = async () => {
     const listId = await getListId(siteId, LIST_PRATICHE);
 
     const fields = {
-      Cliente: cliente,
+      ClienteLookupId: selectedClienteId,
       TipoPratica: tipo,
       Scadenza: new Date(scadenza).toISOString(),
       NoteOperative: note,
