@@ -46,8 +46,7 @@
   .msg.error { background: #F8D7DA; color: #721C24; display: block; }
   .spinner { display: none; text-align: center; padding: 6px; color: #666; font-size: 12px; }
   .spinner.show { display: block; }
-  select#fStato option[value="DA FARE"] { color: #856404; }
-  select#fStato option[value="IN LAVORAZIONE"] { color: #004085; }
+
 </style>
 </head>
 <body>
@@ -95,16 +94,8 @@
 </div>
 
 <div class="field">
-  <label>Stato</label>
-  <select id="fStato">
-    <option value="DA FARE">DA FARE</option>
-    <option value="IN LAVORAZIONE">IN LAVORAZIONE</option>
-  </select>
-</div>
-
-<div class="field">
   <label>Note Operative</label>
-  <textarea id="fNoteOp" rows="3" placeholder="Note operative e aggiornamenti progressivi..."></textarea>
+  <textarea id="fNoteOp" rows="5" placeholder="Note operative e aggiornamenti progressivi..."></textarea>
 </div>
 
 <hr class="divider">
@@ -258,9 +249,6 @@ async function caricaPratica() {
       if (f.Cliente) document.getElementById("fCliente").value = f.Cliente;
       if (f.TipoPratica) document.getElementById("fTipo").value = f.TipoPratica;
       if (f.Scadenza) document.getElementById("fScadenza").value = f.Scadenza.slice(0, 10);
-      if (f.Stato && (f.Stato === "DA FARE" || f.Stato === "IN LAVORAZIONE")) {
-        document.getElementById("fStato").value = f.Stato;
-      }
       if (f.NoteOperative) document.getElementById("fNoteOp").value = f.NoteOperative;
       if (f.DescrizioneFatturazione) document.getElementById("fDescrFatt").value = f.DescrizioneFatturazione;
       if (f.Ore) document.getElementById("fOre").value = f.Ore;
@@ -320,9 +308,8 @@ document.getElementById("btnSalva").onclick = async () => {
   if (!validaCampiBase()) return;
   setLoading(true);
   try {
-    const stato = document.getElementById("fStato").value;
-    await salvaPratica(stato, false);
-    if (stato === "IN LAVORAZIONE") await spostaEmail(FOLDER_IN_LAVORAZIONE);
+    await salvaPratica("IN LAVORAZIONE", false);
+    await spostaEmail(FOLDER_IN_LAVORAZIONE);
     mostraMsg("✔ Pratica salvata.", "success");
   } catch (e) { mostraMsg("Errore. Riprovare.", "error"); }
   setLoading(false);
