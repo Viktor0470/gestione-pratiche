@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestione Pratica</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.1/js/msal-browser.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #1C2B3A; --gold: #E8A020; --bg: #F5F4EF; --border: #ddd; --active-bg: #CCE5FF; --active-text: #004085; }
+  body { font-family: 'Source Sans 3', sans-serif; background: var(--bg); color: #1a1a1a; padding: 14px; font-size: 13px; }
+  .header { background: var(--navy); color: #F5F4EF; margin: -14px -14px 12px -14px; padding: 10px 14px; }
+  .header .label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: #8AAFC4; margin-bottom: 2px; }
+  .header h1 { font-family: 'Lora', serif; font-size: 15px; font-weight: 700; }
+  .email-info { background: var(--active-bg); color: var(--active-text); border-radius: 6px; padding: 8px 12px; margin-bottom: 12px; font-size: 12px; }
+  .email-info .oggetto { font-weight: 600; font-size: 13px; font-family: 'Lora', serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .email-info .mittente { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+  .field { margin-bottom: 10px; }
+  .field label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.8px; display: block; margin-bottom: 3px; font-weight: 600; }
+  .field input, .field select { width: 100%; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; background: #fff; transition: border-color 0.15s; }
+  .field input:focus, .field select:focus { border-color: var(--navy); }
+  .field textarea { width: 100%; padding: 6px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'Source Sans 3', sans-serif; outline: none; resize: vertical; transition: border-color 0.15s; }
+  .field textarea:focus { border-color: var(--navy); }
+  .row2 { display: flex; gap: 8px; }
+  .row2 .field { flex: 1; }
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1.5px solid var(--navy); border-radius: 0 0 6px 6px; max-height: 120px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+  .autocomplete-list.open { display: block; }
+  .autocomplete-item { padding: 6px 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f0f0f0; }
+  .autocomplete-item:hover { background: var(--bg); }
+  .autocomplete-item.add-new { color: var(--gold); font-weight: 600; font-style: italic; }
+  .divider { border: none; border-top: 1px solid #e0e0d8; margin: 12px 0; }
+  .section-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .btn-row { display: flex; gap: 6px; margin-top: 12px; }
+  .btn { flex: 1; border: none; border-radius: 6px; padding: 9px 4px; font-size: 11px; font-weight: 600; cursor: pointer; font-family: 'Lora', serif; transition: opacity 0.15s; text-align: center; line-height: 1.3; }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-salva { background: var(--navy); color: #fff; }
+  .btn-rispondi { background: #6C757D; color: #fff; }
+  .btn-chiudi { background: #28A745; color: #fff; }
+  .btn-login { width: 100%; background: var(--gold); color: #fff; border: none; border-radius: 6px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Lora', serif; margin-bottom: 10px; display: none; }
+  .msg { margin-top: 8px; padding: 7px 12px; border-radius: 6px; font-size: 12px; display: none; }
+  .msg.success { background: #D4EDDA; color: #155724; display: block; }
+  .msg.error { background: #F8D7DA; color: #721C24; display: block; }
+  .spinner { display: none; text-align: center; padding: 6px; color: #666; font-size: 12px; }
+  .spinner.show { display: block; }
+  .field-descrizione input { border-color: var(--gold); border-width: 2px; font-weight: 600; }
+  .field-descrizione label { color: var(--navy); }
+  .field-hint { font-size: 10px; color: #888; margin-top: 4px; line-height: 1.35; }
+
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="label">Terrazzini &amp; Partners</div>
+  <h1>Gestione Pratica</h1>
+</div>
+
+<button class="btn-login" id="btnLogin">🔑 Accedi con Microsoft</button>
+
+<div class="field field-descrizione">
+  <label>Descrizione Pratica — verifica/correggi</label>
+  <input type="text" id="fDescrizionePratica" placeholder="Descrizione sintetica della pratica...">
+</div>
+
+<!-- DATI PRATICA -->
+<div class="field">
+  <label>Cliente *</label>
+  <div class="autocomplete-wrap">
+    <input type="text" id="fCliente" placeholder="Inizia a scrivere..." autocomplete="off">
+    <div class="autocomplete-list" id="autocompleteList"></div>
+  </div>
+</div>
+
+<div class="row2">
+  <div class="field">
+    <label>Tipo Pratica *</label>
+    <select id="fTipo">
+      <option value="">— Seleziona —</option>
+      <option>Ordinaria</option>
+      <option>Specialistica</option>
+    </select>
+    <div class="field-hint">Ordinaria: assunzioni, inquadramento, premi. Specialistica: relazioni sindacali, contenzioso, operazioni societarie, lavoro all'estero.</div>
+  </div>
+  <div class="field">
+    <label>Scadenza</label>
+    <input type="date" id="fScadenza">
+  </div>
+</div>
+
+<div class="field">
+  <label>Note Operative</label>
+  <textarea id="fNoteOp" rows="5" placeholder="Note operative e aggiornamenti progressivi..."></textarea>
+</div>
+
+<hr class="divider">
+<div class="section-label">Fatturazione</div>
+
+<div class="field">
+  <label>Descrizione Fatturazione</label>
+  <textarea id="fDescrFatt" rows="2" placeholder="Descrivi la prestazione per la fatturazione..."></textarea>
+</div>
+
+<div class="row2">
+  <div class="field">
+    <label>Ore</label>
+    <input type="number" id="fOre" min="0" max="999" placeholder="0">
+  </div>
+  <div class="field">
+    <label>Minuti</label>
+    <input type="number" id="fMinuti" min="0" max="59" placeholder="0">
+  </div>
+</div>
+
+<div class="field">
+  <label>Note Fatturazione</label>
+  <textarea id="fNoteFatt" rows="2" placeholder="Dettaglio voci (es. Armonizzazione contratti: 5 ore)..."></textarea>
+</div>
+
+<!-- PULSANTI -->
+<div class="btn-row">
+  <button class="btn btn-salva" id="btnSalva">💾 Salva</button>
+  <button class="btn btn-rispondi" id="btnRispondi">✉️ Rispondi al Cliente</button>
+  <button class="btn btn-chiudi" id="btnChiudi">✅ Chiudi Pratica</button>
+</div>
+
+<div class="spinner" id="spinner">Salvataggio...</div>
+<div class="msg" id="msg"></div>
+
+<script>
+const CLIENT_ID = "55c40096-7100-44b0-817e-c725133ba09a";
+const TENANT_ID = "58858aec-99dd-4073-9aeb-2878bf254eca";
+const SHAREPOINT_HOST = "terrazzini-my.sharepoint.com";
+const SHAREPOINT_SITE_PATH = "/personal/ozren_terrazzini_it";
+const LIST_PRATICHE = "Pratiche di Consulenza";
+const LIST_CLIENTI = "Clienti";
+const FOLDER_IN_LAVORAZIONE = "IN LAVORAZIONE";
+const FOLDER_COMPLETATE = "COMPLETATE";
+
+const msalConfig = {
+  auth: {
+    clientId: CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
+    redirectUri: "https://viktor0470.github.io/gestione-pratiche/prendi-in-carico.html"
+  },
+  cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: true }
+};
+
+const msalInstance = new msal.PublicClientApplication(msalConfig);
+const scopes = ["https://graph.microsoft.com/Sites.ReadWrite.All", "https://graph.microsoft.com/Mail.ReadWrite"];
+
+let accessToken = null;
+let clientiCache = [];
+let selectedClienteId = null;
+let emailId = "";
+let emailOggetto = "";
+let emailMittente = "";
+let emailCorpo = "";
+let consulente = "";
+let praticaItemId = null;
+
+Office.onReady(async (info) => {
+  if (info.host === Office.HostType.Outlook) {
+    const item = Office.context.mailbox.item;
+    emailOggetto = item.subject || "";
+    emailMittente = item.from ? item.from.emailAddress : "";
+    emailId = item.itemId || "";
+    consulente = Office.context.mailbox.userProfile.displayName || "";
+
+    document.getElementById("fDescrizionePratica").value = emailOggetto;
+
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    document.getElementById("fScadenza").value = d.toISOString().slice(0, 10);
+
+    item.body.getAsync(Office.CoercionType.Text, (result) => {
+      if (result.status === Office.AsyncResultStatus.Succeeded) emailCorpo = result.value || "";
+    });
+
+    await inizializzaAuth();
+  }
+});
+
+async function inizializzaAuth() {
+  try {
+    await msalInstance.initialize();
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      const result = await msalInstance.acquireTokenSilent({ scopes, account: accounts[0] });
+      accessToken = result.accessToken;
+      await caricaDati();
+    } else {
+      document.getElementById("btnLogin").style.display = "block";
+    }
+  } catch (e) {
+    console.error("Auth error:", e);
+    document.getElementById("btnLogin").style.display = "block";
+  }
+}
+
+document.getElementById("btnLogin").onclick = async () => {
+  try {
+    const result = await msalInstance.loginPopup({ scopes, prompt: "select_account" });
+    accessToken = result.accessToken;
+    document.getElementById("btnLogin").style.display = "none";
+    await caricaDati();
+  } catch (e) { mostraMsg("Errore di accesso. Riprovare.", "error"); }
+};
+
+async function caricaDati() {
+  await Promise.all([caricaClienti(), caricaPratica()]);
+}
+
+async function caricaClienti() {
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_CLIENTI);
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$top=500`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await res.json();
+    clientiCache = (data.value || [])
+      .map(i => ({ id: i.id, nome: i.fields.Title || "" }))
+      .filter(c => c.nome)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  } catch (e) { console.error("Errore clienti:", e); }
+}
+
+async function caricaPratica() {
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_PRATICHE);
+    const encodedMailID = encodeURIComponent(emailId).replace(/'/g, "''");
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items?$expand=fields&$filter=fields/MailID eq '${emailId}'&$top=1`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await res.json();
+    console.log("emailId in caricaPratica:", emailId);
+    console.log("Risultato ricerca:", data.value?.length, "items trovati");
+    const item = data.value && data.value.length > 0 ? data.value[0] : null;
+    console.log("item trovato:", item ? "sì" : "no", item?.id);
+    if (item) {
+      praticaItemId = item.id;
+      const f = item.fields;
+      console.log("Campi pratica:", JSON.stringify(f));
+      if (f.Title) document.getElementById("fDescrizionePratica").value = f.Title;
+      // Campo Cliente è una Ricerca - leggi il nome dalla lista Clienti
+      if (f.ClienteLookupId) {
+        selectedClienteId = f.ClienteLookupId;
+        try {
+          const siteId2 = await getSiteId();
+          const clientiListId = await getListId(siteId2, LIST_CLIENTI);
+          const clienteRes = await fetch(
+            `https://graph.microsoft.com/v1.0/sites/${siteId2}/lists/${clientiListId}/items/${f.ClienteLookupId}?$expand=fields`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          );
+          const clienteData = await clienteRes.json();
+          if (clienteData.fields?.Title) {
+            document.getElementById("fCliente").value = clienteData.fields.Title;
+          }
+        } catch (e) { console.error("Errore lettura cliente:", e); }
+      }
+      if (f.TipoPratica) document.getElementById("fTipo").value = f.TipoPratica;
+      if (f.Scadenza) document.getElementById("fScadenza").value = f.Scadenza.slice(0, 10);
+      if (f.NoteOperative) document.getElementById("fNoteOp").value = f.NoteOperative;
+      if (f.DescrizioneFatturazione) document.getElementById("fDescrFatt").value = f.DescrizioneFatturazione;
+      if (f.Ore) document.getElementById("fOre").value = f.Ore;
+      if (f.Minuti) document.getElementById("fMinuti").value = f.Minuti;
+      if (f.NoteFatturazione) document.getElementById("fNoteFatt").value = f.NoteFatturazione;
+    }
+  } catch (e) { console.error("Errore pratica:", e); }
+}
+
+// AUTOCOMPLETE
+const fCliente = document.getElementById("fCliente");
+const autocompleteList = document.getElementById("autocompleteList");
+
+fCliente.addEventListener("input", () => {
+  const q = fCliente.value.trim().toLowerCase();
+  autocompleteList.innerHTML = "";
+  if (q.length < 2) { autocompleteList.classList.remove("open"); return; }
+  const filtered = clientiCache.filter(c => c.nome.toLowerCase().includes(q)).slice(0, 8);
+  filtered.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "autocomplete-item";
+    div.textContent = c.nome;
+    div.onclick = () => { fCliente.value = c.nome; selectedClienteId = c.id; autocompleteList.classList.remove("open"); };
+    autocompleteList.appendChild(div);
+  });
+  const addDiv = document.createElement("div");
+  addDiv.className = "autocomplete-item add-new";
+  addDiv.textContent = `+ Aggiungi "${fCliente.value.trim()}"`;
+  addDiv.onclick = async () => { await aggiungiCliente(fCliente.value.trim()); autocompleteList.classList.remove("open"); };
+  autocompleteList.appendChild(addDiv);
+  autocompleteList.classList.add("open");
+});
+
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".autocomplete-wrap")) autocompleteList.classList.remove("open");
+});
+
+async function aggiungiCliente(nome) {
+  try {
+    const siteId = await getSiteId();
+    const listId = await getListId(siteId, LIST_CLIENTI);
+    const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { Title: nome } })
+    });
+    const data = await res.json();
+    selectedClienteId = data.id;
+    clientiCache.push({ id: selectedClienteId, nome });
+    clientiCache.sort((a, b) => a.nome.localeCompare(b.nome));
+    fCliente.value = nome;
+  } catch (e) { console.error(e); }
+}
+
+// SALVA
+document.getElementById("btnSalva").onclick = async () => {
+  if (!validaCampiBase()) return;
+  setLoading(true);
+  try {
+    console.log("Inizio salvataggio...");
+    console.log("praticaItemId:", praticaItemId);
+    console.log("emailId:", emailId);
+    console.log("selectedClienteId:", selectedClienteId);
+    await salvaPratica("IN LAVORAZIONE", false);
+    console.log("Salvataggio completato");
+    mostraMsg("✔ Pratica salvata.", "success");
+  } catch (e) { 
+    console.error("Errore salvataggio:", e);
+    mostraMsg("Errore. Riprovare.", "error"); 
+  }
+  setLoading(false);
+};
+
+// RISPONDI AL CLIENTE
+document.getElementById("btnRispondi").onclick = () => {
+  const corpo = `<br><br><hr><small>Messaggio originale:</small><br>${emailCorpo.replace(/\n/g, '<br>')}`;
+  Office.context.mailbox.item.displayReplyAllForm({ htmlBody: corpo });
+};
+
+// CHIUDI PRATICA
+document.getElementById("btnChiudi").onclick = async () => {
+  if (!validaCampiBase()) return;
+  const descrizione = document.getElementById("fDescrFatt").value.trim();
+  if (!descrizione) { mostraMsg("Inserire la descrizione per la fatturazione.", "error"); return; }
+  const ore = parseInt(document.getElementById("fOre").value) || 0;
+  const minuti = parseInt(document.getElementById("fMinuti").value) || 0;
+  if (ore === 0 && minuti === 0) { mostraMsg("Inserire il tempo impiegato.", "error"); return; }
+  if (minuti > 59) { mostraMsg("I minuti devono essere tra 0 e 59.", "error"); return; }
+  setLoading(true);
+  try {
+    await salvaPratica("COMPLETA", true);
+    await spostaEmail(FOLDER_COMPLETATE);
+    mostraMsg("✔ Pratica chiusa e pronta per la fatturazione.", "success");
+  } catch (e) { mostraMsg("Errore. Riprovare.", "error"); }
+  setLoading(false);
+};
+
+async function salvaPratica(stato, inclFatturazione) {
+  const siteId = await getSiteId();
+  const listId = await getListId(siteId, LIST_PRATICHE);
+  const fields = {
+    Title: document.getElementById("fDescrizionePratica").value.trim(),
+    ...(selectedClienteId ? { ClienteLookupId: selectedClienteId } : { Cliente: fCliente.value.trim() }),
+    TipoPratica: document.getElementById("fTipo").value,
+    Scadenza: new Date(document.getElementById("fScadenza").value).toISOString(),
+    NoteOperative: document.getElementById("fNoteOp").value.trim(),
+    Consulente: consulente,
+    Stato: stato
+  };
+  if (inclFatturazione) {
+    fields.DescrizioneFatturazione = document.getElementById("fDescrFatt").value.trim();
+    fields.Ore = parseInt(document.getElementById("fOre").value) || 0;
+    fields.Minuti = parseInt(document.getElementById("fMinuti").value) || 0;
+    fields.NoteFatturazione = document.getElementById("fNoteFatt").value.trim();
+    fields.DataChiusura = new Date().toISOString();
+  }
+  if (praticaItemId) {
+    await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items/${praticaItemId}/fields`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify(fields)
+    });
+  } else {
+    const res = await fetch(`https://graph.microsoft.com/v1.0/sites/${siteId}/lists/${listId}/items`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { MailID: emailId, DataArrivo: new Date().toISOString(), ...fields } })
+    });
+    const data = await res.json();
+    praticaItemId = data.id;
+  }
+}
+
+async function spostaEmail(nomeCartella) {
+  try {
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/me/mailFolders/inbox/childFolders?$top=50`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await res.json();
+    const folder = (data.value || []).find(f => f.displayName === nomeCartella);
+    if (folder) {
+      const moveRes = await fetch(`https://graph.microsoft.com/v1.0/me/messages/${emailId}/move`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ destinationId: folder.id })
+      });
+      if (!moveRes.ok) {
+        const err = await moveRes.json();
+        console.log("Spostamento ignorato:", err.error?.code);
+      }
+    } else {
+      console.error("Cartella non trovata:", nomeCartella);
+    }
+  } catch (e) { 
+    console.log("Errore spostamento ignorato:", e); 
+  }
+}
+
+function validaCampiBase() {
+  if (!fCliente.value.trim()) { mostraMsg("Inserire il cliente.", "error"); return false; }
+  if (!document.getElementById("fTipo").value) { mostraMsg("Selezionare il tipo pratica.", "error"); return false; }
+  return true;
+}
+
+function setLoading(v) {
+  document.getElementById("spinner").className = v ? "spinner show" : "spinner";
+  ["btnSalva","btnRispondi","btnChiudi"].forEach(id => document.getElementById(id).disabled = v);
+}
+
+function mostraMsg(testo, tipo) {
+  const el = document.getElementById("msg");
+  el.textContent = testo;
+  el.className = `msg ${tipo}`;
+}
+
+let _siteId = null;
+async function getSiteId() {
+  if (_siteId) return _siteId;
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${SHAREPOINT_HOST}:${SHAREPOINT_SITE_PATH}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  if (!data.id) throw new Error("Site not found");
+  _siteId = data.id;
+  return _siteId;
+}
+
+const _listIds = {};
+async function getListId(siteId, listName) {
+  if (_listIds[listName]) return _listIds[listName];
+  const res = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${siteId}/lists?$filter=displayName eq '${encodeURIComponent(listName)}'`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  const data = await res.json();
+  if (!data.value || data.value.length === 0) throw new Error("List not found: " + listName);
+  _listIds[listName] = data.value[0].id;
+  return _listIds[listName];
+}
+</script>
+</body>
+</html>
